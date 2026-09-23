@@ -13,7 +13,7 @@ type Status =
   | { kind: 'fallback'; mailto: string };
 
 const field =
-  'w-full rounded-[10px] border border-dark-border bg-white/[0.04] px-[15px] py-[13px] text-[15px] text-white transition-colors placeholder:text-[#5f6673] focus:border-primary focus:bg-primary/[0.07] focus:outline-none';
+  'w-full rounded-[10px] border border-border bg-black/[0.02] px-[15px] py-[13px] text-[15px] text-ink transition-colors placeholder:text-muted focus:border-primary focus:bg-primary/[0.07] focus:outline-none';
 
 export default function ContactForm() {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
