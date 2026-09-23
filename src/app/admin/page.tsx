@@ -26,6 +26,21 @@ export default async function AdminDashboard() {
         <KpiCard label="Đã thu" value={formatMoneyShort(stats.finance.collected)} hint={`Chi phí ${formatMoneyShort(stats.finance.expenses)}`} tone="success" />
       </div>
 
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <a href="https://vercel.com/nguyenhuahoangkhang/flowbase-website/deployments" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary hover:bg-primary/[0.02]">
+          <span className="text-[14px] font-semibold">Vercel Deployments</span>
+          <ArrowUpRight size={16} className="text-muted" />
+        </a>
+        <a href="https://console.neon.tech/app/projects/aged-band-30713826/branches/br-billowing-tree-azb9l0f8?database=neondb" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary hover:bg-primary/[0.02]">
+          <span className="text-[14px] font-semibold">Neon Database</span>
+          <ArrowUpRight size={16} className="text-muted" />
+        </a>
+        <a href="https://github.com/NguyenHuaHoangKhang/flowbase-website" target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary hover:bg-primary/[0.02]">
+          <span className="text-[14px] font-semibold">GitHub Repository</span>
+          <ArrowUpRight size={16} className="text-muted" />
+        </a>
+      </div>
+
       {stats.brokenIntegrations > 0 && (
         <div className="mb-4 flex items-center gap-3 rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/[0.08] px-4 py-3 text-sm">
           <AlertTriangle size={17} className="flex-none text-[#B45309]" />
