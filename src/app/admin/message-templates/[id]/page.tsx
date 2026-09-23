@@ -23,7 +23,6 @@ export default async function MessageTemplateEditPage({ params }: { params: { id
       <PageHeader
         title="Chỉnh sửa Mẫu tin nhắn"
         description="Biên soạn mẫu tin nhắn chuẩn, bạn có thể tự nhập thêm Lĩnh vực/Kênh mới nếu muốn."
-        backTo="/admin/message-templates"
       />
       <div className="mt-6">
         <MessageTemplateEditor 
