@@ -57,6 +57,11 @@ export default function ContactForm() {
       });
       const result = await res.json();
 
+      if (res.status === 422 || result.error) {
+        setStatus({ kind: 'error', message: result.error || 'Dữ liệu không hợp lệ.' });
+        return;
+      }
+
       if (result.delivered) {
         setStatus({ kind: 'delivered' });
         event.currentTarget.reset();
