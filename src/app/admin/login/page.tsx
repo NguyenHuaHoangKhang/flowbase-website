@@ -6,41 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, UserCheck, Eye, EyeOff, Sparkles, Lock } from 'lucide-react';
 import { Button, Input, FormField } from '@/components/admin/ui';
 
-const TEST_ACCOUNTS = [
-  {
-    role: 'OWNER',
-    name: 'Trần Quốc Việt',
-    email: 'owner@flowbase.studio',
-    badgeTone: 'bg-primary/10 text-primary border-primary/20',
-    desc: 'Toàn quyền (Tài chính, Lead, Dự án, Users)',
-    icon: '👑',
-  },
-  {
-    role: 'ADMIN',
-    name: 'Nguyễn Minh Huy',
-    email: 'admin@flowbase.studio',
-    badgeTone: 'bg-blue-500/10 text-blue-700 border-blue-500/20',
-    desc: 'Quản trị vận hành (trừ User & Billing settings)',
-    icon: '🛡️',
-  },
-  {
-    role: 'EDITOR',
-    name: 'Lê Hoàng Nam',
-    email: 'editor@flowbase.studio',
-    badgeTone: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
-    desc: 'Quản lý Demo, Lead & Dự án (Ẩn Tài chính)',
-    icon: '✏️',
-  },
-  {
-    role: 'VIEWER',
-    name: 'Phạm Thu Hà',
-    email: 'viewer@flowbase.studio',
-    badgeTone: 'bg-gray-500/10 text-gray-700 border-gray-500/20',
-    desc: 'Chỉ xem dữ liệu, không có quyền tạo/sửa',
-    icon: '👁️',
-  },
-];
-
 export default function AdminLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,7 +15,6 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [quickLoadingRole, setQuickLoadingRole] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleStandardLogin = async (e: React.FormEvent) => {
@@ -82,32 +46,6 @@ export default function AdminLoginPage() {
     } catch {
       setError('Lỗi kết nối máy chủ. Vui lòng thử lại.');
       setLoading(false);
-    }
-  };
-
-  const handleQuickLogin = async (role: string) => {
-    setQuickLoadingRole(role);
-    setError(null);
-
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role, next }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Không thể đăng nhập bằng tài khoản mẫu.');
-        setQuickLoadingRole(null);
-        return;
-      }
-
-      router.push(data.redirectTo || next);
-      router.refresh();
-    } catch {
-      setError('Lỗi kết nối máy chủ.');
-      setQuickLoadingRole(null);
     }
   };
 
@@ -155,7 +93,7 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                disabled={loading || !!quickLoadingRole}
+                disabled={loading}
               />
             </FormField>
 
@@ -168,7 +106,7 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  disabled={loading || !!quickLoadingRole}
+                  disabled={loading}
                   rightIcon={
                     <button
                       type="button"
@@ -189,54 +127,11 @@ export default function AdminLoginPage() {
               size="lg"
               className="w-full"
               loading={loading}
-              disabled={!!quickLoadingRole}
             >
               Đăng nhập
             </Button>
           </form>
 
-          {/* Dev Sandbox: Quick Role Switcher */}
-          <div className="mt-8 border-t border-border pt-6">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted">
-                <Sparkles size={13} className="text-amber-500" />
-                Kiểm thử nhanh phân quyền (Dev Sandbox)
-              </span>
-              <span className="rounded bg-[#F3F4F6] px-1.5 py-0.5 text-[10px] font-semibold text-muted">
-                1-Click
-              </span>
-            </div>
-            <p className="mb-3 text-[12px] text-muted">
-              Chọn 1 vai trò bên dưới để đăng nhập tức thì và kiểm tra ma trận RBAC:
-            </p>
-
-            <div className="grid grid-cols-2 gap-2">
-              {TEST_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.role}
-                  type="button"
-                  onClick={() => handleQuickLogin(acc.role)}
-                  disabled={loading || !!quickLoadingRole}
-                  className="flex flex-col items-start rounded-[12px] border border-border bg-[#FBFCFD] p-3 text-left transition-all hover:border-primary/40 hover:bg-white hover:shadow-sm active:scale-[0.98] disabled:opacity-60"
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <span className="text-base">{acc.icon}</span>
-                    <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold border ${acc.badgeTone}`}
-                    >
-                      {acc.role}
-                    </span>
-                  </div>
-                  <b className="mt-2 block truncate text-[13px] font-semibold text-ink">
-                    {acc.name}
-                  </b>
-                  <span className="mt-0.5 block line-clamp-2 text-[11px] text-muted">
-                    {acc.desc}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Back Link */}
