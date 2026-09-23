@@ -5,11 +5,10 @@ import { formatDateTime, formatDate } from '@/lib/format';
 import PageHeader from '@/components/admin/PageHeader';
 import StatusBadge from '@/components/admin/StatusBadge';
 import AdminButton from '@/components/admin/AdminButton';
+import LeadStatusEditor from '@/components/admin/leads/LeadStatusEditor';
 
 /**
  * Trang chi tiết lead.
- * TODO khi nối DB: form đổi trạng thái POST về PATCH /api/admin/leads/[id],
- * ghi Activity kiểu STATUS_CHANGE và một dòng AuditLog trong cùng transaction.
  */
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
   const lead = await getLead(params.id);
@@ -44,9 +43,9 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <StatusBadge value={lead.status} />
+        <LeadStatusEditor leadId={lead.id} currentStatus={lead.status} />
         {lead.lostReason && (
-          <span className="text-[13px] text-muted">Lý do mất: {lead.lostReason}</span>
+          <span className="text-[13px] text-muted ml-2">Lý do mất: {lead.lostReason}</span>
         )}
       </div>
 

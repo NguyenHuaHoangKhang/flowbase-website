@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getLead } from '@/server/repositories';
 import { leadUpdateSchema } from '@/lib/validators';
 import { emitEvent, guard, parseBody, recordAudit } from '@/app/api/_lib';
+import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
@@ -28,15 +29,41 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const { data, response: invalid } = await parseBody(request, leadUpdateSchema);
   if (invalid) return invalid;
 
-  // TODO: prisma.$transaction([ update lead, create activity, create auditLog ])
-  const updated = { ...existing, ...data };
+  // prisma.$transaction([ update lead, create activity, create auditLog ])
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedLead = await tx.lead.update({
+      where: { id: existing.id },
+      data,
+    });
+
+    if (data.status && data.status !== existing.status) {
+      await tx.activity.create({
+        data: {
+          type: 'STATUS_CHANGE',
+          leadId: existing.id,
+          userId: user?.id,
+          subject: `Đổi trạng thái: ${existing.status} → ${data.status}`,
+          body: data.lostReason ? `Lý do mất: ${data.lostReason}` : null,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: user?.id || null,
+          action: 'UPDATE',
+          entityType: 'Lead',
+          entityId: existing.id,
+          summary: `Đổi trạng thái ${existing.status} → ${data.status}`,
+          diff: { before: { status: existing.status }, after: { status: data.status } },
+          ip: request.headers.get('x-forwarded-for') || null,
+        },
+      });
+    }
+
+    return updatedLead;
+  });
 
   if (data.status && data.status !== existing.status) {
-    await recordAudit({
-      userId: user?.id, action: 'UPDATE', entityType: 'Lead', entityId: existing.id,
-      summary: `Đổi trạng thái ${existing.status} → ${data.status}`,
-      diff: { before: { status: existing.status }, after: { status: data.status } },
-    });
     await emitEvent('lead.status_changed', updated);
     if (data.status === 'WON') await emitEvent('lead.won', updated);
     if (data.status === 'LOST') await emitEvent('lead.lost', updated);
