@@ -80,7 +80,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {rightIcon && (
-          <span className="pointer-events-none absolute right-3 flex items-center text-muted">
+          <span className="absolute right-3 flex items-center text-muted">
             {rightIcon}
           </span>
         )}
