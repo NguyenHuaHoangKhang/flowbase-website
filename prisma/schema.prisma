@@ -1,0 +1,933 @@
+// ============================================================================
+// FLOWBASE — Admin data model
+// PostgreSQL + Prisma
+//
+// Quy ước chung:
+//  - id        : cuid, không dùng số tự tăng để tránh lộ khối lượng dữ liệu
+//  - createdAt : mọi bảng đều có, để audit và sắp xếp
+//  - deletedAt : soft delete cho các bảng nghiệp vụ (null = còn sống)
+//  - tiền tệ   : Decimal(18,2) + cột currency riêng, KHÔNG dùng Float
+//  - ràng buộc CHECK nằm ở prisma/sql/constraints.sql (Prisma chưa hỗ trợ native)
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+// 1. NGƯỜI DÙNG & PHÂN QUYỀN
+// ===========================================================================
+
+enum UserRole {
+  OWNER // toàn quyền, kể cả tài chính và xoá vĩnh viễn
+  ADMIN // toàn quyền trừ quản lý user và billing settings
+  EDITOR // quản lý demo, lead, project — không xem được tài chính
+  VIEWER // chỉ đọc
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String?
+  avatarUrl    String?
+  role         UserRole   @default(VIEWER)
+  status       UserStatus @default(INVITED)
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  ownedLeads        Lead[]        @relation("LeadOwner")
+  managedProjects   Project[]     @relation("ProjectOwner")
+  assignedTasks     Task[]        @relation("TaskAssignee")
+  timeEntries       TimeEntry[]
+  activities        Activity[]
+  createdApiKeys    ApiKey[]
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+// ===========================================================================
+// 2. DEMO / PORTFOLIO
+// ===========================================================================
+
+enum DemoLabel {
+  CONCEPT // FLOWBASE tự dựng, chưa triển khai
+  DEMO // bản chạy được, dữ liệu mẫu
+  PROTOTYPE
+  CASE_STUDY // có dự án thật đứng sau
+}
+
+enum DemoStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum DemoVisibility {
+  PUBLIC // ai cũng xem được trên site
+  UNLISTED // chỉ ai có link
+  PASSWORD // cần mật khẩu
+  GRANT_ONLY // chỉ email/token được cấp quyền
+}
+
+enum AssetKind {
+  SCREENSHOT
+  COVER
+  VIDEO
+  FILE
+}
+
+model Demo {
+  id          String         @id @default(cuid())
+  slug        String         @unique
+  title       String
+  category    String
+  summary     String
+  description String?        @db.Text
+  label       DemoLabel      @default(CONCEPT)
+  status      DemoStatus     @default(DRAFT)
+  visibility  DemoVisibility @default(PUBLIC)
+
+  // Chỉ dùng khi visibility = PASSWORD. Lưu hash, không lưu plaintext.
+  accessPasswordHash String?
+
+  coverUrl  String?
+  liveUrl   String?
+  repoUrl   String?
+  techStack String[] @default([])
+
+  // Nội dung case study, giữ dạng JSON để AI/editor ghi vào mà không cần migrate
+  caseStudy Json?
+
+  sortOrder   Int       @default(0)
+  viewCount   Int       @default(0)
+  publishedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  assets  DemoAsset[]
+  tags    DemoTag[]
+  views   DemoView[]
+  grants  DemoAccessGrant[]
+  projects Project[]
+
+  @@index([status, visibility, sortOrder])
+  @@index([label])
+  @@map("demos")
+}
+
+model DemoAsset {
+  id        String    @id @default(cuid())
+  demoId    String
+  kind      AssetKind @default(SCREENSHOT)
+  url       String
+  caption   String?
+  width     Int?
+  height    Int?
+  sizeBytes Int?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  demo Demo @relation(fields: [demoId], references: [id], onDelete: Cascade)
+
+  @@index([demoId, sortOrder])
+  @@map("demo_assets")
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  label     String
+  createdAt DateTime  @default(now())
+
+  demos DemoTag[]
+
+  @@map("tags")
+}
+
+model DemoTag {
+  demoId String
+  tagId  String
+
+  demo Demo @relation(fields: [demoId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([demoId, tagId])
+  @@index([tagId])
+  @@map("demo_tags")
+}
+
+/// Log mỗi lượt xem demo. ipHash thay vì IP thô để không giữ dữ liệu cá nhân.
+model DemoView {
+  id        String   @id @default(cuid())
+  demoId    String
+  grantId   String?
+  ipHash    String?
+  country   String?
+  referrer  String?
+  userAgent String?
+  sessionId String?
+  createdAt DateTime @default(now())
+
+  demo  Demo             @relation(fields: [demoId], references: [id], onDelete: Cascade)
+  grant DemoAccessGrant? @relation(fields: [grantId], references: [id], onDelete: SetNull)
+
+  @@index([demoId, createdAt])
+  @@map("demo_views")
+}
+
+/// Cấp quyền xem một demo cho một người cụ thể (gửi link riêng cho khách).
+model DemoAccessGrant {
+  id         String    @id @default(cuid())
+  demoId     String
+  leadId     String?
+  email      String
+  token      String    @unique
+  note       String?
+  maxViews   Int? // null = không giới hạn
+  viewCount  Int       @default(0)
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  lastViewAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  demo  Demo       @relation(fields: [demoId], references: [id], onDelete: Cascade)
+  lead  Lead?      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  views DemoView[]
+
+  @@unique([demoId, email])
+  @@index([leadId])
+  @@map("demo_access_grants")
+}
+
+model Prompt {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  systemPrompt String?   @db.Text
+  userPrompt   String?   @db.Text
+  variables    String[]  @default([])
+  tags         String[]  @default([])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@map("prompts")
+}
+
+model SystemCategory {
+  id        String   @id @default(cuid())
+  type      String   // "CHANNEL" or "CATEGORY"
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@unique([type, value])
+  @@map("system_categories")
+}
+
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  category  String
+  channel   String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@map("message_templates")
+}
+
+// ===========================================================================
+// 3. CRM — LEAD, KHÁCH HÀNG, HOẠT ĐỘNG
+// ===========================================================================
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  PROPOSAL
+  WON
+  LOST
+  SPAM
+}
+
+enum LeadSource {
+  WEBSITE_FORM
+  REFERRAL
+  ZALO
+  EMAIL
+  LINKEDIN
+  EVENT
+  OTHER
+}
+
+model Lead {
+  id      String @id @default(cuid())
+  name    String
+  email   String
+  phone   String?
+  company String?
+  message String  @db.Text
+
+  status LeadStatus @default(NEW)
+  source LeadSource @default(WEBSITE_FORM)
+
+  /// 0–100, dùng để xếp ưu tiên. Có CHECK ở constraints.sql.
+  score Int @default(0)
+
+  ownerId String?
+  clientId String?
+
+  // Ngữ cảnh marketing
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  referrer    String?
+  ipHash      String?
+
+  lostReason   String?
+  contactedAt  DateTime?
+  convertedAt  DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner      User?             @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  client     Client?           @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  activities Activity[]
+  projects   Project[]
+  grants     DemoAccessGrant[]
+
+  @@index([status, createdAt])
+  @@index([ownerId])
+  @@index([email])
+  @@map("leads")
+}
+
+enum ClientStatus {
+  PROSPECT
+  ACTIVE
+  INACTIVE
+}
+
+model Client {
+  id          String       @id @default(cuid())
+  name        String
+  legalName   String?
+  taxCode     String?      @unique
+  status      ClientStatus @default(PROSPECT)
+  email       String?
+  phone       String?
+  address     String?
+  website     String?
+  note        String?      @db.Text
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  contacts  ClientContact[]
+  leads     Lead[]
+  projects  Project[]
+  contracts Contract[]
+  invoices  Invoice[]
+
+  @@index([status])
+  @@map("clients")
+}
+
+model ClientContact {
+  id        String   @id @default(cuid())
+  clientId  String
+  name      String
+  role      String?
+  email     String?
+  phone     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_contacts")
+}
+
+enum ActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  DEMO_SENT
+  STATUS_CHANGE
+  FILE
+}
+
+/// Dòng thời gian gắn vào lead hoặc project. Ít nhất một trong hai phải có
+/// (ràng buộc CHECK activity_target_required).
+model Activity {
+  id        String       @id @default(cuid())
+  type      ActivityType @default(NOTE)
+  leadId    String?
+  projectId String?
+  userId    String?
+  subject   String?
+  body      String?      @db.Text
+  meta      Json?
+  happenedAt DateTime    @default(now())
+  createdAt DateTime     @default(now())
+
+  lead    Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, happenedAt])
+  @@index([projectId, happenedAt])
+  @@map("activities")
+}
+
+// ===========================================================================
+// 4. JOB / PROJECT PIPELINE
+// ===========================================================================
+
+enum ProjectStatus {
+  BACKLOG
+  DISCOVERY
+  PROPOSAL
+  SIGNED
+  IN_PROGRESS
+  UAT
+  DELIVERED
+  MAINTENANCE
+  ON_HOLD
+  CANCELLED
+}
+
+enum ProjectPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum BillingType {
+  FIXED
+  HOURLY
+  MILESTONE
+  RETAINER
+}
+
+enum Currency {
+  VND
+  USD
+}
+
+model Project {
+  id       String @id @default(cuid())
+  code     String @unique // FB-2026-001
+  title    String
+  summary  String?
+  clientId String?
+  leadId   String?
+  demoId   String?
+  ownerId  String?
+
+  status      ProjectStatus   @default(BACKLOG)
+  priority    ProjectPriority @default(NORMAL)
+  billingType BillingType     @default(FIXED)
+
+  budgetAmount Decimal  @default(0) @db.Decimal(18, 2)
+  currency     Currency @default(VND)
+  hourlyRate   Decimal? @db.Decimal(18, 2)
+  estimateHours Int?
+
+  /// 0–100, có CHECK ở constraints.sql
+  progress Int @default(0)
+
+  startDate DateTime?
+  dueDate   DateTime?
+  closedAt  DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  lead        Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  demo        Demo?        @relation(fields: [demoId], references: [id], onDelete: SetNull)
+  owner       User?        @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  milestones  Milestone[]
+  tasks       Task[]
+  timeEntries TimeEntry[]
+  contracts   Contract[]
+  invoices    Invoice[]
+  expenses    Expense[]
+  activities  Activity[]
+
+  @@index([status, dueDate])
+  @@index([clientId])
+  @@index([ownerId])
+  @@map("projects")
+}
+
+enum MilestoneStatus {
+  PLANNED
+  IN_PROGRESS
+  DONE
+  INVOICED
+  PAID
+}
+
+model Milestone {
+  id        String          @id @default(cuid())
+  projectId String
+  title     String
+  detail    String?
+  amount    Decimal         @default(0) @db.Decimal(18, 2)
+  status    MilestoneStatus @default(PLANNED)
+  dueDate   DateTime?
+  doneAt    DateTime?
+  sortOrder Int             @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invoiceItems InvoiceItem[]
+
+  @@index([projectId, sortOrder])
+  @@map("milestones")
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  BLOCKED
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  projectId     String
+  milestoneId   String?
+  title         String
+  detail        String?    @db.Text
+  status        TaskStatus @default(TODO)
+  assigneeId    String?
+  estimateHours Decimal?   @db.Decimal(8, 2)
+  dueDate       DateTime?
+  doneAt        DateTime?
+  sortOrder     Int        @default(0)
+  subtasks      Json?      // { id, title, isDone }[]
+  attachments   Json?      // { id, url, name, type }[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?       @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  timeEntries TimeEntry[]
+
+  @@index([projectId, status])
+  @@index([assigneeId, status])
+  @@map("tasks")
+}
+
+model TimeEntry {
+  id        String   @id @default(cuid())
+  projectId String
+  taskId    String?
+  userId    String
+  workDate  DateTime @db.Date
+  minutes   Int
+  billable  Boolean  @default(true)
+  rate      Decimal? @db.Decimal(18, 2)
+  note      String?
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, workDate])
+  @@index([userId, workDate])
+  @@map("time_entries")
+}
+
+// ===========================================================================
+// 5. TÀI CHÍNH
+// ===========================================================================
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  EXPIRED
+  TERMINATED
+}
+
+model Contract {
+  id         String         @id @default(cuid())
+  code       String         @unique
+  clientId   String
+  projectId  String?
+  title      String
+  value      Decimal        @default(0) @db.Decimal(18, 2)
+  currency   Currency       @default(VND)
+  status     ContractStatus @default(DRAFT)
+  signedAt   DateTime?
+  startDate  DateTime?
+  endDate    DateTime?
+  fileUrl    String?
+  note       String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, status])
+  @@map("contracts")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIAL
+  PAID
+  OVERDUE
+  VOID
+}
+
+model Invoice {
+  id        String @id @default(cuid())
+  code      String @unique // INV-2026-014
+  clientId  String
+  projectId String?
+
+  status    InvoiceStatus @default(DRAFT)
+  issueDate DateTime      @db.Date
+  dueDate   DateTime      @db.Date
+  sentAt    DateTime?
+  paidAt    DateTime?
+
+  currency     Currency @default(VND)
+  /// Tỷ giá về VND tại thời điểm phát hành. VND = 1.
+  exchangeRate Decimal  @default(1) @db.Decimal(18, 6)
+
+  subtotal    Decimal @default(0) @db.Decimal(18, 2)
+  discount    Decimal @default(0) @db.Decimal(18, 2)
+  taxRate     Decimal @default(0) @db.Decimal(5, 2) // %
+  taxAmount   Decimal @default(0) @db.Decimal(18, 2)
+  total       Decimal @default(0) @db.Decimal(18, 2)
+  /// Cache tổng đã thu, cập nhật khi ghi nhận Payment.
+  amountPaid  Decimal @default(0) @db.Decimal(18, 2)
+
+  note       String?   @db.Text
+  fileUrl    String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  project  Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@index([status, dueDate])
+  @@index([clientId, issueDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  milestoneId String?
+  description String
+  quantity    Decimal  @default(1) @db.Decimal(12, 2)
+  unitPrice   Decimal  @default(0) @db.Decimal(18, 2)
+  amount      Decimal  @default(0) @db.Decimal(18, 2)
+  sortOrder   Int      @default(0)
+
+  invoice   Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  milestone Milestone? @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId, sortOrder])
+  @@map("invoice_items")
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CARD
+  E_WALLET
+  OTHER
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  invoiceId String
+  amount    Decimal       @db.Decimal(18, 2)
+  currency  Currency      @default(VND)
+  method    PaymentMethod @default(BANK_TRANSFER)
+  paidAt    DateTime      @db.Date
+  reference String? // số giao dịch ngân hàng
+  note      String?
+  createdAt DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+enum ExpenseCategory {
+  INFRASTRUCTURE // server, domain, storage
+  SOFTWARE // license, SaaS
+  CONTRACTOR // thuê ngoài
+  SALARY
+  MARKETING
+  EQUIPMENT
+  TAX
+  OTHER
+}
+
+model Expense {
+  id         String          @id @default(cuid())
+  projectId  String?
+  category   ExpenseCategory @default(OTHER)
+  vendor     String
+  description String?
+  amount     Decimal         @db.Decimal(18, 2)
+  currency   Currency        @default(VND)
+  spentAt    DateTime        @db.Date
+  billable   Boolean         @default(false)
+  /// Chi phí lặp lại: 'monthly' | 'yearly' | null
+  recurrence String?
+  receiptUrl String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  deletedAt  DateTime?
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([spentAt])
+  @@index([category])
+  @@index([projectId])
+  @@map("expenses")
+}
+
+// ===========================================================================
+// 6. KẾT NỐI BÊN NGOÀI
+// ===========================================================================
+
+enum IntegrationProvider {
+  SLACK
+  ZALO_OA
+  GOOGLE_SHEETS
+  GOOGLE_DRIVE
+  GITHUB
+  VERCEL
+  RESEND
+  SENDGRID
+  STRIPE
+  GENERIC_WEBHOOK
+}
+
+enum IntegrationStatus {
+  DISCONNECTED
+  CONNECTED
+  ERROR
+  EXPIRED
+}
+
+model Integration {
+  id       String              @id @default(cuid())
+  provider IntegrationProvider
+  name     String
+  status   IntegrationStatus   @default(DISCONNECTED)
+
+  /// Cấu hình KHÔNG nhạy cảm (channel id, sheet id, repo...).
+  config Json?
+  /// Tham chiếu tới secret store (tên biến môi trường / vault key).
+  /// KHÔNG lưu access token trực tiếp trong cột này.
+  secretRef String?
+
+  scopes      String[]  @default([])
+  lastSyncAt  DateTime?
+  lastError   String?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  endpoints WebhookEndpoint[]
+  syncRuns  SyncRun[]
+
+  @@unique([provider, name])
+  @@index([status])
+  @@map("integrations")
+}
+
+model WebhookEndpoint {
+  id            String   @id @default(cuid())
+  integrationId String?
+  url           String
+  description   String?
+  /// Danh sách event: lead.created, project.status_changed, invoice.paid...
+  events        String[] @default([])
+  secretRef     String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  integration Integration?      @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  deliveries  WebhookDelivery[]
+
+  @@index([active])
+  @@map("webhook_endpoints")
+}
+
+enum DeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+model WebhookDelivery {
+  id           String         @id @default(cuid())
+  endpointId   String
+  event        String
+  payload      Json
+  status       DeliveryStatus @default(PENDING)
+  attempts     Int            @default(0)
+  responseCode Int?
+  responseBody String?
+  nextRetryAt  DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime       @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, status])
+  @@index([status, nextRetryAt])
+  @@map("webhook_deliveries")
+}
+
+enum SyncDirection {
+  PULL
+  PUSH
+  BIDIRECTIONAL
+}
+
+/// Lịch sử đồng bộ với hệ thống ngoài (ví dụ đẩy lead sang Google Sheets).
+model SyncRun {
+  id            String        @id @default(cuid())
+  integrationId String
+  direction     SyncDirection @default(PUSH)
+  entity        String // 'lead' | 'invoice' | ...
+  startedAt     DateTime      @default(now())
+  finishedAt    DateTime?
+  recordsOk     Int           @default(0)
+  recordsFailed Int           @default(0)
+  error         String?
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId, startedAt])
+  @@map("sync_runs")
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  /// 8 ký tự đầu để hiển thị, phần còn lại chỉ lưu hash.
+  prefix      String    @unique
+  hashedKey   String
+  scopes      String[]  @default([])
+  createdById String?
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("api_keys")
+}
+
+// ===========================================================================
+// 7. CẤU HÌNH SITE & AUDIT
+// ===========================================================================
+
+model SiteSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  GRANT_ACCESS
+  REVOKE_ACCESS
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  userId     String?
+  action     AuditAction
+  entityType String // 'Lead' | 'Invoice' | ...
+  entityId   String?
+  summary    String?
+  diff       Json? // { before: {...}, after: {...} }
+  ip         String?
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}

@@ -1,0 +1,53 @@
+{
+  "name": "flowbase",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FLOWBASE — From Spreadsheet to Software. AI-native software studio portfolio.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "test:db": "tsx tests/db-integration.ts",
+    "test:auth": "tsx tests/auth-integration.ts",
+    "test:crm": "tsx tests/crm-integration.ts",
+    "test:projects": "tsx tests/project-integration.ts",
+    "test:finance": "tsx tests/finance-integration.ts",
+    "test:demos": "tsx tests/demo-integration.ts",
+    "test:integrations": "tsx tests/integration-system.ts",
+    "test:users": "tsx tests/user-integration.ts",
+    "test:contact": "tsx tests/contact-cron-test.ts",
+    "test:all": "tsx tests/db-integration.ts && tsx tests/auth-integration.ts && tsx tests/crm-integration.ts && tsx tests/project-integration.ts && tsx tests/finance-integration.ts && tsx tests/demo-integration.ts && tsx tests/integration-system.ts && tsx tests/user-integration.ts && tsx tests/contact-cron-test.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.71",
+    "@prisma/client": "^5.22.0",
+    "ai": "^7.0.107",
+    "bcryptjs": "^2.4.3",
+    "framer-motion": "^11.11.17",
+    "lucide-react": "^0.462.0",
+    "next": "14.2.18",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.17.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.15",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
