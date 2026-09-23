@@ -51,11 +51,11 @@ export const clients: Client[] = [
 ];
 
 export const projects: Project[] = [
-  { id: 'prj_1', code: 'FB-2026-001', title: 'HR & quy trình duyệt nội bộ', clientId: 'cli_1', clientName: 'Công ty XYZ', ownerId: 'usr_2', ownerName: 'Nguyễn Hải Yến', status: 'IN_PROGRESS', priority: 'HIGH', billingType: 'MILESTONE', budgetAmount: 285_000_000, currency: 'VND', progress: 62, startDate: day(-45), dueDate: day(25), invoicedAmount: 185_000_000, paidAmount: 95_000_000 },
-  { id: 'prj_2', code: 'FB-2026-002', title: 'Cổng báo cáo vận hành', clientId: 'cli_1', clientName: 'Công ty XYZ', ownerId: 'usr_3', ownerName: 'Lê Anh Khoa', status: 'UAT', priority: 'NORMAL', billingType: 'FIXED', budgetAmount: 100_000_000, currency: 'VND', progress: 88, startDate: day(-70), dueDate: day(6), invoicedAmount: 100_000_000, paidAmount: 100_000_000 },
-  { id: 'prj_3', code: 'FB-2026-003', title: 'Lecturer Management — giai đoạn 1', clientId: 'cli_2', clientName: 'Trung tâm đào tạo ABC', ownerId: 'usr_1', ownerName: 'Trần Quốc Việt', status: 'PROPOSAL', priority: 'HIGH', billingType: 'FIXED', budgetAmount: 220_000_000, currency: 'VND', progress: 0, startDate: null, dueDate: day(60), invoicedAmount: 0, paidAmount: 0 },
-  { id: 'prj_4', code: 'FB-2026-004', title: 'Internal tool white-label', clientId: 'cli_3', clientName: 'Agency GHI', ownerId: null, ownerName: null, status: 'DISCOVERY', priority: 'NORMAL', billingType: 'HOURLY', budgetAmount: 0, currency: 'VND', progress: 0, startDate: null, dueDate: null, invoicedAmount: 0, paidAmount: 0 },
-  { id: 'prj_5', code: 'FB-2025-018', title: 'Hệ thống chấm công thử nghiệm', clientId: 'cli_1', clientName: 'Công ty XYZ', ownerId: 'usr_3', ownerName: 'Lê Anh Khoa', status: 'DELIVERED', priority: 'LOW', billingType: 'FIXED', budgetAmount: 60_000_000, currency: 'VND', progress: 100, startDate: day(-160), dueDate: day(-95), invoicedAmount: 60_000_000, paidAmount: 60_000_000 },
+  { id: 'prj_1', code: 'FB-2026-001', title: 'HR & quy trình duyệt nội bộ', clientId: 'cli_1', clientName: 'Công ty XYZ', ownerId: 'usr_2', ownerName: 'Nguyễn Hải Yến', status: 'IN_PROGRESS', priority: 'HIGH', billingType: 'MILESTONE', budgetAmount: 285_000_000, currency: 'VND', progress: 62, startDate: day(-45), dueDate: day(25), invoicedAmount: 185_000_000, paidAmount: 95_000_000, summary: '' },
+  { id: 'prj_2', code: 'FB-2026-002', title: 'Cổng báo cáo vận hành', clientId: 'cli_1', clientName: 'Công ty XYZ', ownerId: 'usr_3', ownerName: 'Lê Anh Khoa', status: 'UAT', priority: 'NORMAL', billingType: 'FIXED', budgetAmount: 100_000_000, currency: 'VND', progress: 88, startDate: day(-70), dueDate: day(6), invoicedAmount: 100_000_000, paidAmount: 100_000_000, summary: '' },
+  { id: 'prj_3', code: 'FB-2026-003', title: 'Lecturer Management — giai đoạn 1', clientId: 'cli_2', clientName: 'Trung tâm đào tạo ABC', ownerId: 'usr_1', ownerName: 'Trần Quốc Việt', status: 'PROPOSAL', priority: 'HIGH', billingType: 'FIXED', budgetAmount: 220_000_000, currency: 'VND', progress: 0, startDate: null, dueDate: day(60), invoicedAmount: 0, paidAmount: 0, summary: '' },
+  { id: 'prj_4', code: 'FB-2026-004', title: 'Internal tool white-label', clientId: 'cli_3', clientName: 'Agency GHI', ownerId: null, ownerName: null, status: 'DISCOVERY', priority: 'NORMAL', billingType: 'HOURLY', budgetAmount: 0, currency: 'VND', progress: 0, startDate: null, dueDate: null, invoicedAmount: 0, paidAmount: 0, summary: '' },
+  { id: 'prj_5', code: 'FB-2025-018', title: 'Hệ thống chấm công thử nghiệm', clientId: 'cli_1', clientName: 'Công ty XYZ', ownerId: 'usr_3', ownerName: 'Lê Anh Khoa', status: 'DELIVERED', priority: 'LOW', billingType: 'FIXED', budgetAmount: 60_000_000, currency: 'VND', progress: 100, startDate: day(-160), dueDate: day(-95), invoicedAmount: 60_000_000, paidAmount: 60_000_000, summary: '' },
 ];
 
 export const milestones: Milestone[] = [
@@ -66,10 +66,10 @@ export const milestones: Milestone[] = [
 ];
 
 export const tasks: Task[] = [
-  { id: 'tsk_1', projectId: 'prj_1', title: 'Thiết kế bảng permission theo phòng ban', status: 'IN_PROGRESS', assigneeName: 'Lê Anh Khoa', estimateHours: 12, dueDate: day(3) },
-  { id: 'tsk_2', projectId: 'prj_1', title: 'API duyệt nghỉ phép nhiều cấp', status: 'REVIEW', assigneeName: 'Lê Anh Khoa', estimateHours: 20, dueDate: day(1) },
-  { id: 'tsk_3', projectId: 'prj_1', title: 'Import dữ liệu nhân sự từ Excel cũ', status: 'TODO', assigneeName: null, estimateHours: 8, dueDate: day(10) },
-  { id: 'tsk_4', projectId: 'prj_1', title: 'Chờ khách xác nhận danh sách phòng ban', status: 'BLOCKED', assigneeName: 'Nguyễn Hải Yến', estimateHours: null, dueDate: null },
+  { id: 'tsk_1', projectId: 'prj_1', title: 'Thiết kế bảng permission theo phòng ban', status: 'IN_PROGRESS', assigneeName: 'Lê Anh Khoa', estimateHours: 12, dueDate: day(3), detail: null, subtasks: [], attachments: [] },
+  { id: 'tsk_2', projectId: 'prj_1', title: 'API duyệt nghỉ phép nhiều cấp', status: 'REVIEW', assigneeName: 'Lê Anh Khoa', estimateHours: 20, dueDate: day(1), detail: null, subtasks: [], attachments: [] },
+  { id: 'tsk_3', projectId: 'prj_1', title: 'Import dữ liệu nhân sự từ Excel cũ', status: 'TODO', assigneeName: null, estimateHours: 8, dueDate: day(10), detail: null, subtasks: [], attachments: [] },
+  { id: 'tsk_4', projectId: 'prj_1', title: 'Chờ khách xác nhận danh sách phòng ban', status: 'BLOCKED', assigneeName: 'Nguyễn Hải Yến', estimateHours: null, dueDate: null, detail: null, subtasks: [], attachments: [] },
 ];
 
 export const invoices: Invoice[] = [

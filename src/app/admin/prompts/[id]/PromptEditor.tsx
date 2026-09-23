@@ -39,7 +39,7 @@ export default function PromptEditor({ initialData }: { initialData: any }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          tags: formData.tags.split(',').map((t) => t.trim()).filter(Boolean),
+          tags: formData.tags.split(',').map((t: string) => t.trim()).filter(Boolean),
           variables,
         }),
       });
