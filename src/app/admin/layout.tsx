@@ -33,7 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="flex min-h-screen bg-bg">
       <ToastProvider>
         <Sidebar user={user} />
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 flex flex-col">
           <header className="sticky top-0 z-[60] flex h-14 items-center justify-between gap-4 border-b border-border bg-bg/85 px-5 backdrop-blur-[10px] lg:px-7">
             <div className="flex items-center gap-2">
               <span className="font-mono text-[11px] text-muted">/admin</span>
@@ -43,6 +43,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </header>
 
           <main className="px-5 py-6 pb-24 lg:px-7 lg:pb-10">{children}</main>
+
+          <footer className="mt-auto border-t border-border bg-bg/50 px-5 py-4 text-center text-[12px] text-muted lg:px-7 flex items-center justify-center gap-4">
+            <span>Dev Links:</span>
+            <a href="https://vercel.com/nguyenhuahoangkhang/flowbase-website/deployments" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">Vercel</a>
+            <span className="opacity-30">|</span>
+            <a href="https://console.neon.tech/app/projects/aged-band-30713826/branches/br-billowing-tree-azb9l0f8?database=neondb" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">Neon DB</a>
+            <span className="opacity-30">|</span>
+            <a href="https://github.com/NguyenHuaHoangKhang/flowbase-website" target="_blank" rel="noreferrer" className="hover:text-primary transition-colors hover:underline">GitHub</a>
+          </footer>
         </div>
       </ToastProvider>
     </div>
